@@ -1,12 +1,11 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Copyright (C) 2000 Gerwin Klein <lsf@jflex.de>
  * All rights reserved.
- * 
+ *
  * License: BSD
- * 
+ *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 %%
-
 %class Lexer
 %byaccj
 
@@ -25,134 +24,248 @@
   }
 %}
 
+/* Define macros */
+digit = [0-9]
+letter = [a-zA-Z]
+identifier = {letter}({letter}|{digit})*
+linecomment = "//"[^\n]*
+blockcomment = "/*" [^*] ~"*/" | "/*" "*"+ "/"
+newline = \r|\n|\r\n
+whitespace = [ \t\f]+
+float_lit = {digit}+\.{digit}+
+minc_linecomment = "%%"[^\n]*
+minc_blockcomment = "%*"([^*]|\*+[^%])*\*+%
+
 %%
 
-"\uFEFF" { /* skip BOM if present */ }
+<YYINITIAL> {
+  "\uFEFF" { /* skip BOM if present */ }
 
-"num" {
+  /* MinC Comments */
+  {minc_linecomment} {
+    // Skip the minc line comment.
+    column += yytext().length();
+  }
+  {minc_blockcomment} {
+    // Process the minc block comment: update line and column counters.
+    for (int i = 0; i < yytext().length(); i++) {
+      if (yytext().charAt(i) == '\n') {
+        lineno++;
+        column = 1;
+      } else {
+        column++;
+      }
+    }
+  }
+  
+  /* C-style Comments */
+  {linecomment} {
+    column += yytext().length();
+  }
+  {blockcomment} {
+    for (int i = 0; i < yytext().length(); i++) {
+      if (yytext().charAt(i) == '\n') {
+        lineno++;
+        column = 1;
+      } else {
+        column++;
+      }
+    }
+  }
+  {newline} {
+    lineno++;
+    column = 1;
+  }
+  {whitespace} {
+    column += yytext().length();
+  }
+
+  /* Keywords */
+  "num" {
     tokenStart = column;
     parser.yylval = new ParserVal(yytext());
     column += yytext().length();
     return Parser.NUM;
-}
-"(?i)bool" {
+  }
+  "bool" {
     tokenStart = column;
     parser.yylval = new ParserVal(yytext());
     column += yytext().length();
     return Parser.BOOL;
-}
-"{" {
-    tokenStart = column;
-    parser.yylval = new ParserVal(yytext());
-    column += yytext().length();
-    return Parser.BEGIN;
-}
-"}" {
-    tokenStart = column;
-    parser.yylval = new ParserVal(yytext());
-    column += yytext().length();
-    return Parser.END;
-}
-"(" {
-    tokenStart = column;
-    parser.yylval = new ParserVal(yytext());
-    column += yytext().length();
-    return Parser.LPAREN;
-}
-")" {
-    tokenStart = column;
-    parser.yylval = new ParserVal(yytext());
-    column += yytext().length();
-    return Parser.RPAREN;
-}
-";" {
-    tokenStart = column;
-    parser.yylval = new ParserVal(yytext());
-    column += yytext().length();
-    return Parser.SEMI;
-}
-"[" {
-    tokenStart = column;
-    parser.yylval = new ParserVal(yytext());
-    column += yytext().length();
-    return Parser.LBRACKET;
-}
-"]" {
-    tokenStart = column;
-    parser.yylval = new ParserVal(yytext());
-    column += yytext().length();
-    return Parser.RBRACKET;
-}
-"and" {
-    tokenStart = column;
-    parser.yylval = new ParserVal(yytext());
-    column += yytext().length();
-    return Parser.TERMOP;
-}
-"true" {
+  }
+  "true" {
     tokenStart = column;
     parser.yylval = new ParserVal(yytext());
     column += yytext().length();
     return Parser.BOOL_LIT;
-}
-"false" {
+  }
+  "false" {
     tokenStart = column;
     parser.yylval = new ParserVal(yytext());
     column += yytext().length();
     return Parser.BOOL_LIT;
-}
-"new" {
+  }
+  "new" {
     tokenStart = column;
     parser.yylval = new ParserVal(yytext());
     column += yytext().length();
     return Parser.NEW;
-}
-"size" {
+  }
+  "size" {
     tokenStart = column;
     parser.yylval = new ParserVal(yytext());
     column += yytext().length();
     return Parser.SIZE;
-}
-{num} {
+  }
+  "and" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.TERMOP; // Using TERMOP for 'and'
+  }
+  "or" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.OR;
+  }
+  "print" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.PRINT;
+  }
+  "return" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.RETURN;
+  }
+  "if" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.IF;
+  }
+  /* New: equals operator */
+  "=" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.EQ;
+  }
+  /* New: comma */
+  "," {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.COMMA;
+  }
+
+  /* Literals */
+  {digit}+ {
     tokenStart = column;
     parser.yylval = new ParserVal(yytext());
     column += yytext().length();
     return Parser.NUM_LIT;
-}
-{identifier} {
+  }
+  {float_lit} {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.FLOAT_LIT;
+  }
+
+  /* Identifiers */
+  {identifier} {
     tokenStart = column;
     parser.yylval = new ParserVal(yytext());
     column += yytext().length();
     return Parser.IDENT;
-}
-{linecomment} {
-    column += yytext().length();
-    /* skip line comment */
-}
-{newline} {
-    lineno++;
-    column = 1;
-}
-{whitespace} {
-    column += yytext().length();
-}
-{blockcomment} {
-    for (int i = 0; i < yytext().length(); i++) {
-         if (yytext().charAt(i) == '\n') {
-             lineno++;
-             column = 1;
-         } else {
-             column++;
-         }
-    }
-}
+  }
 
-\b {
+  /* Operators and Punctuation */
+  "{" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.BEGIN;
+  }
+  "}" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.END;
+  }
+  "(" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.LPAREN;
+  }
+  ")" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.RPAREN;
+  }
+  ";" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.SEMI;
+  }
+  "[" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.LBRACKET;
+  }
+  "]" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.RBRACKET;
+  }
+  "<-" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.ASSIGN;
+  }
+  "+" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.PLUS;
+  }
+  "-" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.MINUS;
+  }
+  "*" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.TIMES;
+  }
+  "/" {
+    tokenStart = column;
+    parser.yylval = new ParserVal(yytext());
+    column += yytext().length();
+    return Parser.DIVIDE;
+  }
+
+  /* Error Handling */
+  \b {
     System.err.println("Sorry, backspace doesn't work");
-}
-
-[^] {
-    System.err.println("Error: unexpected character '" + yytext() + "'");
+  }
+  [^] {
+    System.err.println("Lexer Error: unexpected character '" + yytext() + "' at " + lineno + ":" + column);
+    parser.yylval = new ParserVal(yytext());
     column += yytext().length();
-    return -1;
+    return Parser.LEXERROR;
+  }
 }
